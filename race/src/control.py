@@ -7,16 +7,25 @@ from ackermann_msgs.msg import AckermannDrive
 
 
 class Controller:
+	default_kp = 0.0
+	default_kd = 0.0
+	default_ki = 0.0
+	default_vel = 0.0
+	servo_offset = 0.0
+
 	def __init__(self):
 		# error memory
 		self.error_memory_size = 10
 		self.error_memory = deque()
 
 		# PID Control Params
-		self.kp = 0.0 #TODO
-		self.kd = 0.0 #TODO
-		self.ki = 0.0 #TODO
-		self.servo_offset = 0.0	# zero correction offset in case servo is misaligned and has a bias in turning.
+		self.kp = Controller.default_kp
+		self.kd = Controller.default_kd
+		self.ki = Controller.default_ki
+
+		# Active frequency
+		self.frequency = 100
+		self.interval = 1/self.frequency
 
 		# This code can input desired velocity from the user.
 		# velocity must be between [0,100] to move forward. 
@@ -25,9 +34,11 @@ class Controller:
 		# 25: Slow and steady
 		# 35: Nice Autonomous Pace
 		# > 40: Careful, what you do here. Only use this if your autonomous steering is very reliable.
-		self.vel_input = 0.0	#TODO
+		self.vel_input = Controller.default_vel
 
 		rospy.init_node('pid_controller', anonymous=True)
+
+
 
 		rospy.Subscriber("error", pid_input, self.register_pid_input)
 
@@ -54,7 +65,7 @@ class Controller:
 		command.steering_angle = angle
 
 		# TODO: Make sure the velocity is within bounds [0,100]
-		command.speed = vel_input
+		command.speed = self.vel_input
 
 		# Move the car autonomously
 		# command_pub.publish(command)
@@ -75,7 +86,20 @@ class Controller:
 		self.vel_input = vel_input
 		
 	def get_pid(self):
-		pass
+		if len(self.error_memory) == 0:
+			return 0, 0, 0
+		if len(self.error_memory) == 1:
+			return self.error_memory[0], 0, 0
+		p = self.error_memory[-1]
+		i = math.sum(self.error_memory)
+		d = self.error_memory[-1] - self.error_memory[-2]
+		return p,i,d
+
+	def run(self):
+		while True:
+			control_msg = self.generate_control_message()
+			self.command_pub.publish(control_msg)
+			rospy.sleep(self.interval)
 
 if __name__ == '__main__':
 	kp = int(input("Enter Kp Value: "))
@@ -85,5 +109,4 @@ if __name__ == '__main__':
 
 	controller = Controller()
 	controller.set_gains(kp, kd, ki, vel_input)
-	rospy.init_node('pid_controller', anonymous=True)
-	rospy.spin()
+	controller.run()
