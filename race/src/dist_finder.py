@@ -47,7 +47,7 @@ def callback(data):
 	## Your code goes here to determine the error as per the algorithm
 	# Compute Alpha, AB, and CD..and finally the error.
 	# TODO: implement
-	alpha = math.atan(a*math.cos(theta-b)/(a*math.sin(theta)))
+	alpha = math.atan((a*math.cos(theta)-b)/(a*math.sin(theta)))
 	AB = b*math.cos(alpha)
 	CD = AB+forward_projection*math.sin(alpha)
 	error = desired_distance-CD
