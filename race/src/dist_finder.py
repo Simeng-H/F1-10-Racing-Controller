@@ -27,12 +27,12 @@ def getRange(data,angle):
 	try:
 		val = data.ranges[index]
 	except IndexError: # BAD INDEX
-		return math.nan
+		return data.range_max#math.nan
 
 	if data.range_min<=val<=data.range_max:
 		return val
 	else: # BAD LIDAR data
-		return math.nan
+		return data.range_max#math.nan
 
 
 
