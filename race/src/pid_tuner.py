@@ -28,7 +28,6 @@ class Tuner:
             
     
     def on_press(self, key):
-        print("pressed")
         char = str(key.char)[0]
         # print(char, " presses")
         if char == "u":
@@ -50,11 +49,9 @@ class Tuner:
         pass 
 
     def publish(self):
-        print("publishing")
         message = Float32MultiArray()
         message.data = [self.kp, self.ki, self.kd]
         self.publisher.publish(message)
-        print("published")
 
 
 if __name__ == '__main__':
