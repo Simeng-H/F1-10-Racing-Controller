@@ -15,7 +15,7 @@ class Tuner:
 
         rospy.init_node('pid_tuner', anonymous=False)
         self.publisher = rospy.Publisher('/pid_params', Float32MultiArray, queue_size=10)
-        self.kp, self.ki, self.kd = 0,0,0
+        self.kp, self.ki, self.kd = 10,0,0
         print("usage: u/j = +/- kp, i/k = +/- ki, o/l = +/- kd")
 
         listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
