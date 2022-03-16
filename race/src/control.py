@@ -4,7 +4,7 @@ import math
 import rospy
 from race.msg import pid_input
 from ackermann_msgs.msg import AckermannDrive
-
+from std_msgs.msg import Float32MultiArray
 
 class Controller:
 	default_kp = 1.0
@@ -14,9 +14,10 @@ class Controller:
 	servo_offset = 0.0
 	active_frequency = 100
 
-	def __init__(self, active=False):
+	def __init__(self, active=False, tune=False):
 		"""
 		@param active: whether to run in active mode, if in active mode, node publishes at fixed interval asynchronously with respect to receiving input, if in passive mode, node publishes each time input is received
+		@param tune: listens to /pid_params if set to True. To be used with pid_tuner
 		"""
 		# error memory
 		self.error_memory_size = 10
@@ -29,13 +30,16 @@ class Controller:
 		self.vel = Controller.default_vel
 		self.angle = 0.0
 
-		# set mode
+		# optionals
 		self.active = active
-		
 		if self.active:
 			# Active frequency
 			self.frequency = Controller.active_frequency
 			self.interval = 1/self.frequency
+
+		self.tune = tune
+		if self.tune:
+			rospy.Subscriber("pid_params", Float32MultiArray, self.pid_params_hook)
 
 		# This code can input desired velocity from the user.
 		# velocity must be between [0,100] to move forward. 
@@ -58,6 +62,13 @@ class Controller:
 
 		if active:
 			self.run_active()
+
+
+	def pid_params_hook(self, message):
+		# print("registering PID params")
+		data = message.data
+		self.kp, self.ki, self.kd = data
+		# print("kp: %f, ki: %f, kd: %f" % (self.kp, self.ki, self.kd))
 
 	def generate_control_message(self):
 		# An empty AckermannDrive message is created. You will populate the steering_angle and the speed fields.
@@ -130,7 +141,7 @@ if __name__ == '__main__':
 	# ki = int(input("Enter Ki Value: "))
 	# vel_input = int(input("Enter desired velocity: "))
 	try:
-		controller = Controller(active=False)
+		controller = Controller(active=False, tune=True)
 	except:
 		rospy.signal_shutdown()
 	
