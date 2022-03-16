@@ -51,6 +51,7 @@ def callback(data):
 	AB = b*math.cos(alpha)
 	CD = AB+forward_projection*math.sin(alpha)
 	error = desired_distance-CD
+	print("distance: "+str(CD))
 
 	msg = pid_input()	# An empty msg is created of the type pid_input
 	# this is the error that you want to send to the PID for steering correction.
