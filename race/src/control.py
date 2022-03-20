@@ -83,13 +83,14 @@ class Controller:
 
 		p,i,d = self.get_pid()
 		pid_output = self.kp * p + self.ki * i + self.kd * d
+
 		# print("pid_output: ",pid_output)
 		
 		# convert pid_output_to steering angle through tanh function, *100 since range is [-100,100]
 		self.angle = math.tanh(pid_output)*100
 
 		command.steering_angle = self.angle
-		command.speed = self.vel_input
+		command.speed = self.get_velocity()
 
 		return command
 
@@ -115,6 +116,12 @@ class Controller:
 		i = sum(self.error_memory)
 		d = self.error_memory[-1] - self.error_memory[-2]
 		return p,i,d
+
+	def get_velocity(self):
+		if len(self.error_memory) == 0:
+			return 0
+		return 10*(2-abs(self.error_memory[-1]))
+
 
 	def run_active(self):
 		while not rospy.is_shutdown():
