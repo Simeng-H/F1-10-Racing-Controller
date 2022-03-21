@@ -106,7 +106,7 @@ def callback(data):
 
 	msg = pid_input()	# An empty msg is created of the type pid_input
 	# this is the error that you want to send to the PID for steering correction.
-	msg.pid_error = projected_dist	
+	msg.pid_error = desired_distance - projected_dist	
 	pub.publish(msg)
 
 
