@@ -10,7 +10,7 @@ from race.msg import pid_input
 angle_range = 240	# Hokuyo 4LX has 240 degrees FoV for scan
 forward_projection = 0.6	# distance (in m) that we project the car forward for correcting the error. You have to adjust this.
 desired_distance = 1	# distance from the wall (in m). (defaults to right wall)
-vel = 25 		# this vel variable is not really used here.
+speed = 25 		# this vel variable is not really used here.
 error = 0.0		# initialize the error
 car_length = 0.50 # Traxxas Rally is 20 inches or 0.5 meters
 
@@ -87,7 +87,7 @@ def polar_to_cartesian(dist, ang):
 def callback(data):
 	global forward_projection
 
-	forward_projection = 0.04 * vel
+	forward_projection = 0.04 * speed
 
 	angles_deg = [0,10,20,30,60]
 	angles = [math.radians(angle) for angle in angles_deg]
@@ -114,8 +114,8 @@ def callback(data):
 	pub.publish(msg)
 
 def register_speed(ackermann_drive):
-	global vel
-	vel = ackermann_drive.speed
+	global speed
+	speed = ackermann_drive.speed
 
 if __name__ == '__main__':
 	print("Hokuyo LIDAR node started")
