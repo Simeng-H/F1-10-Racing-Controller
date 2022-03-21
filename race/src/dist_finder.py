@@ -105,7 +105,7 @@ def callback(data):
 	line = fit_line(points)
 	current_dist = get_dist(line)
 	angle = get_angle(line)
-	projected_dist = current_dist - forward_projection * math.tan(angle)
+	projected_dist = current_dist - forward_projection * math.sin(angle)
 	print(projected_dist)
 
 	msg = pid_input()	# An empty msg is created of the type pid_input
