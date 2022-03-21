@@ -3,13 +3,14 @@
 import rospy
 import math
 from sensor_msgs.msg import LaserScan
+from ackermann_msgs.msg import AckermannDrive
 from race.msg import pid_input
 
 # Some useful variable declarations.
 angle_range = 240	# Hokuyo 4LX has 240 degrees FoV for scan
-forward_projection = 0.02*vel	# distance (in m) that we project the car forward for correcting the error. You have to adjust this.
-desired_distance = 0.25	# distance from the wall (in m). (defaults to right wall)
-vel = 15 		# this vel variable is not really used here.
+forward_projection = 0.6	# distance (in m) that we project the car forward for correcting the error. You have to adjust this.
+desired_distance = 1	# distance from the wall (in m). (defaults to right wall)
+vel = 25 		# this vel variable is not really used here.
 error = 0.0		# initialize the error
 car_length = 0.50 # Traxxas Rally is 20 inches or 0.5 meters
 
@@ -86,7 +87,9 @@ def polar_to_cartesian(dist, ang):
 def callback(data):
 	global forward_projection
 
-	angles_deg = [-10, 10, 30, 50]
+	forward_projection = 0.04 * vel
+
+	angles_deg = [0,10,20,30,60]
 	angles = [math.radians(angle) for angle in angles_deg]
 	dists = [getRange(data, angle) for angle in angles]
 
@@ -103,16 +106,21 @@ def callback(data):
 	current_dist = get_dist(line)
 	angle = get_angle(line)
 	projected_dist = current_dist - forward_projection * math.tan(angle)
+	print(projected_dist)
 
 	msg = pid_input()	# An empty msg is created of the type pid_input
 	# this is the error that you want to send to the PID for steering correction.
-	msg.pid_error = projected_dist	
+	msg.pid_error = desired_distance - projected_dist	
 	pub.publish(msg)
 
+def register_speed(ackermann_drive):
+	global vel
+	vel = ackermann_drive.speed
 
 if __name__ == '__main__':
 	print("Hokuyo LIDAR node started")
 	rospy.init_node('dist_finder',anonymous = True)
 	# TODO: Make sure you are subscribing to the correct car_x/scan topic on your racecar
 	rospy.Subscriber("/car_1/scan",LaserScan,callback)
+	rospy.Subscriber("/car_1/offboard/command",AckermannDrive,register_speed)
 	rospy.spin()
