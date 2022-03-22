@@ -7,10 +7,10 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Float32MultiArray
 
 class Controller:
-	default_kp = 1.0
-	default_kd = 1.0
-	default_ki = 1.0
-	default_vel = 15.0
+	default_kp = 7.0
+	default_kd = 2.0
+	default_ki = 0.1
+	default_vel = 20.0
 	servo_offset = 0.0
 	active_frequency = 100
 
@@ -20,14 +20,14 @@ class Controller:
 		@param tune: listens to /pid_params if set to True. To be used with pid_tuner
 		"""
 		# error memory
-		self.error_memory_size = 10
+		self.error_memory_size = 100
 		self.error_memory = deque()
 
 		# PID Control Params
 		self.kp = Controller.default_kp
 		self.kd = Controller.default_kd
 		self.ki = Controller.default_ki
-		self.vel = Controller.default_vel
+		self.default_vel = Controller.default_vel
 		self.angle = 0.0
 
 		# optionals
@@ -83,13 +83,14 @@ class Controller:
 
 		p,i,d = self.get_pid()
 		pid_output = self.kp * p + self.ki * i + self.kd * d
+
 		# print("pid_output: ",pid_output)
 		
 		# convert pid_output_to steering angle through tanh function, *100 since range is [-100,100]
 		self.angle = math.tanh(pid_output)*100
 
 		command.steering_angle = self.angle
-		command.speed = self.vel_input
+		command.speed = self.get_velocity()
 
 		return command
 
@@ -104,7 +105,7 @@ class Controller:
 		self.kp = kp
 		self.kd = kd
 		self.ki = ki
-		self.vel = vel_input
+		self.default_vel = vel_input
 		
 	def get_pid(self):
 		if len(self.error_memory) == 0:
@@ -122,6 +123,15 @@ class Controller:
 				self.error_memory[-4] * 1,
 			])
 		return p,i,d
+
+	def get_velocity(self):
+		err = 1
+		if len(self.error_memory) > 0:
+			err = sum([abs(x) for x in self.error_memory])/len(self.error_memory)
+		vel_bonus = 1/(err+1) * 15
+		return self.default_vel + vel_bonus
+
+
 
 	def run_active(self):
 		while not rospy.is_shutdown():
