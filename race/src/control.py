@@ -115,6 +115,13 @@ class Controller:
 		p = self.error_memory[-1]
 		i = sum(self.error_memory)
 		d = self.error_memory[-1] - self.error_memory[-2]
+		if len(self.error_memory) > 4:
+			d = sum([
+				self.error_memory[-1] * 11/6.0,
+				self.error_memory[-2] * -3,
+				self.error_memory[-3] * 3/2,
+				self.error_memory[-4] * 1,
+			])
 		return p,i,d
 
 	def get_velocity(self):
