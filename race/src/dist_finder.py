@@ -87,7 +87,7 @@ def polar_to_cartesian(dist, ang):
 def callback(data):
 	global forward_projection
 
-	forward_projection = 0.04 * speed
+	forward_projection = 0.03 * speed
 
 	angles_deg = [0,10,20,30,60]
 	angles = [math.radians(angle) for angle in angles_deg]

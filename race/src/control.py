@@ -7,10 +7,10 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Float32MultiArray
 
 class Controller:
-	default_kp = 7.0
-	default_kd = 2.0
-	default_ki = 0.1
-	default_vel = 20.0
+	default_kp = 2.5
+	default_kd = 0.0
+	default_ki = 0.0
+	default_speed = 20.0
 	servo_offset = 0.0
 	active_frequency = 100
 
@@ -20,14 +20,14 @@ class Controller:
 		@param tune: listens to /pid_params if set to True. To be used with pid_tuner
 		"""
 		# error memory
-		self.error_memory_size = 100
+		self.error_memory_size = 5
 		self.error_memory = deque()
 
 		# PID Control Params
 		self.kp = Controller.default_kp
 		self.kd = Controller.default_kd
 		self.ki = Controller.default_ki
-		self.default_vel = Controller.default_vel
+		self.default_speed = Controller.default_speed
 		self.angle = 0.0
 
 		# optionals
@@ -48,7 +48,7 @@ class Controller:
 		# 25: Slow and steady
 		# 35: Nice Autonomous Pace
 		# > 40: Careful, what you do here. Only use this if your autonomous steering is very reliable.
-		self.vel_input = Controller.default_vel
+		self.vel_input = Controller.default_speed
 
 		# node config
 		rospy.init_node('pid_controller', anonymous=False)
@@ -90,7 +90,7 @@ class Controller:
 		self.angle = math.tanh(pid_output)*100
 
 		command.steering_angle = self.angle
-		command.speed = self.get_velocity()
+		command.speed = self.get_speed()
 
 		return command
 
@@ -105,7 +105,7 @@ class Controller:
 		self.kp = kp
 		self.kd = kd
 		self.ki = ki
-		self.default_vel = vel_input
+		self.default_speed = vel_input
 		
 	def get_pid(self):
 		if len(self.error_memory) == 0:
@@ -124,12 +124,26 @@ class Controller:
 			])
 		return p,i,d
 
-	def get_velocity(self):
+	def get_speed(self):
+		# return 25
+
+		# d = self.error_memory[-1] - self.error_memory[-2]
+		# if len(self.error_memory) > 4:
+		# 	d = sum([
+		# 		self.error_memory[-1] * 11/6.0,
+		# 		self.error_memory[-2] * -3,
+		# 		self.error_memory[-3] * 3/2,
+		# 		self.error_memory[-4] * 1,
+		# 	])
+
 		err = 1
 		if len(self.error_memory) > 0:
 			err = sum([abs(x) for x in self.error_memory])/len(self.error_memory)
-		vel_bonus = 1/(err+1) * 15
-		return self.default_vel + vel_bonus
+		# err = abs(d)
+		speed_bonus = 1/(10*err+1) * 15
+		speed = self.default_speed + speed_bonus
+		print("speed: %f error: %f" % (speed, err))
+		return speed
 
 
 
