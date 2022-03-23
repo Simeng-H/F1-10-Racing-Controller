@@ -2,9 +2,11 @@
 
 import rospy
 import math
+from collections import deque
 from sensor_msgs.msg import LaserScan
 from ackermann_msgs.msg import AckermannDrive
 from race.msg import pid_input
+
 
 # Some useful variable declarations.
 angle_range = 240	# Hokuyo 4LX has 240 degrees FoV for scan
@@ -17,6 +19,7 @@ car_length = 0.50 # Traxxas Rally is 20 inches or 0.5 meters
 # Handle to the publisher that will publish on the error topic, messages of the type 'pid_input'
 pub = rospy.Publisher('error', pid_input, queue_size=10)
 
+last_speeds = []
 
 def getRange(data,angle):
 	# data: single message from topic /scan

@@ -7,11 +7,11 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Float32MultiArray
 
 class Controller:
-	default_kp = 2.0
-	default_kd = 0
+	default_kp = 3.0
+	default_kd = 0.7
 	default_ki = 0
 	default_speed = 20.0
-	speed_range = 15.0
+	speed_range = 25.0
 	servo_offset = 0.0
 	active_frequency = 10
 
@@ -103,7 +103,8 @@ class Controller:
 		# return
 		self.time += 1
 		error = pid_input.pid_error
-		if(abs(error) > 0.4):
+		print("error: %f" % error)
+		if(abs(error) > 0.35):
 			self.stable_time = 0
 		else:
 			self.stable_time += 1
@@ -141,7 +142,7 @@ class Controller:
 		pid_output = self.get_pid_output()
 
 		# threshold
-		bonus = math.tanh(self.stable_time)
+		bonus = math.tanh(2**self.stable_time-1)
 		speed_bonus = bonus * self.speed_range
 
 
