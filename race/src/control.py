@@ -7,13 +7,16 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Float32MultiArray
 
 class Controller:
-	default_kp = 3.0
-	default_kd = 0.7
+	default_kp = 2.2
+	default_kd = 0.1
 	default_ki = 0
 	default_speed = 20.0
 	speed_range = 25.0
 	servo_offset = 0.0
 	active_frequency = 10
+
+	high_error_threshold = 0.6
+	low_error_threshold = 0.15
 
 	def __init__(self, active=False, tune=False):
 		"""
@@ -92,7 +95,7 @@ class Controller:
 		# print("pid_output: ",pid_output)
 		
 		# convert pid_output_to steering angle through tanh function, *100 since range is [-100,100]
-		self.angle = math.tanh(pid_output)*100
+		self.angle = (math.tanh(pid_output))*100
 
 		command.steering_angle = self.angle
 		command.speed = self.get_speed()
@@ -103,15 +106,18 @@ class Controller:
 		# return
 		self.time += 1
 		error = pid_input.pid_error
-		print("error: %f" % error)
-		if(abs(error) > 0.35):
-			self.stable_time = 0
-		else:
-			self.stable_time += 1
-
+		self.record_stability(error)
 		self.error_memory.append(error)
 		if len(self.error_memory) >= self.error_memory_size:
 			self.error_memory.popleft()
+
+	def record_stability(self, error):
+		if(error > Controller.high_error_threshold):
+			self.stable_time = 0
+		elif(error > Controller.low_error_threshold):
+			self.stable_time /= 2
+		else:
+			self.stable_time += 1
 
 	def set_gains(self,kp, kd, ki, vel_input):
 		self.kp = kp
@@ -142,7 +148,7 @@ class Controller:
 		pid_output = self.get_pid_output()
 
 		# threshold
-		bonus = math.tanh(2**self.stable_time-1)
+		bonus = math.tanh(self.stable_time ** 0.5)
 		speed_bonus = bonus * self.speed_range
 
 
