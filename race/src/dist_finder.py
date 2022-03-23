@@ -93,7 +93,7 @@ def callback(data):
 	# forward_projection = 0.03 * speed
 	forward_projection = 1
 
-	angles_deg = [0,5,10, 15 ,20,30,60, 70, 80]
+	angles_deg = [0,5,10, 15 ,20,30,60, 70]
 	angles = [math.radians(angle) for angle in angles_deg]
 	dists = [getRange(data, angle) for angle in angles]
 

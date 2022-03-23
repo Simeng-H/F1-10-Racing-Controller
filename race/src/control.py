@@ -100,6 +100,8 @@ class Controller:
 		command.steering_angle = self.angle
 		command.speed = self.get_speed()
 
+		print("error: %f, angle: %f, speed: %f" % (self.error_memory[-1], command.steering_angle, command.speed))
+
 		return command
 
 	def register_pid_input(self, pid_input):
