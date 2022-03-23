@@ -7,20 +7,24 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Float32MultiArray
 
 class Controller:
-	default_kp = 2.5
-	default_kd = 0.0
-	default_ki = 0.0
+	default_kp = 2.0
+	default_kd = 0
+	default_ki = 0
 	default_speed = 20.0
+	speed_range = 15.0
 	servo_offset = 0.0
-	active_frequency = 100
+	active_frequency = 10
 
 	def __init__(self, active=False, tune=False):
 		"""
 		@param active: whether to run in active mode, if in active mode, node publishes at fixed interval asynchronously with respect to receiving input, if in passive mode, node publishes each time input is received
 		@param tune: listens to /pid_params if set to True. To be used with pid_tuner
 		"""
+
+		self.time = 0
+		self.stable_time = 0
 		# error memory
-		self.error_memory_size = 5
+		self.error_memory_size = 20
 		self.error_memory = deque()
 
 		# PID Control Params
@@ -28,6 +32,7 @@ class Controller:
 		self.kd = Controller.default_kd
 		self.ki = Controller.default_ki
 		self.default_speed = Controller.default_speed
+		self.speed_range = Controller.speed_range
 		self.angle = 0.0
 
 		# optionals
@@ -96,7 +101,13 @@ class Controller:
 
 	def register_pid_input(self, pid_input):
 		# return
+		self.time += 1
 		error = pid_input.pid_error
+		if(abs(error) > 0.4):
+			self.stable_time = 0
+		else:
+			self.stable_time += 1
+
 		self.error_memory.append(error)
 		if len(self.error_memory) >= self.error_memory_size:
 			self.error_memory.popleft()
@@ -126,26 +137,29 @@ class Controller:
 
 	def get_speed(self):
 		# return 25
+		p,i,d = self.get_pid()
+		pid_output = self.get_pid_output()
 
-		# d = self.error_memory[-1] - self.error_memory[-2]
-		# if len(self.error_memory) > 4:
-		# 	d = sum([
-		# 		self.error_memory[-1] * 11/6.0,
-		# 		self.error_memory[-2] * -3,
-		# 		self.error_memory[-3] * 3/2,
-		# 		self.error_memory[-4] * 1,
-		# 	])
+		# threshold
+		bonus = math.tanh(self.stable_time)
+		speed_bonus = bonus * self.speed_range
 
-		err = 1
-		if len(self.error_memory) > 0:
-			err = sum([abs(x) for x in self.error_memory])/len(self.error_memory)
+
+		# err = 1
+		# if len(self.error_memory) > 0:
+		# 	err = sum([abs(x) for x in self.error_memory])/len(self.error_memory)
 		# err = abs(d)
-		speed_bonus = 1/(10*err+1) * 15
+		# speed_bonus = 1/(1*err+1) * 15
 		speed = self.default_speed + speed_bonus
-		print("speed: %f error: %f" % (speed, err))
+		# print("speed: %f error: %f time: %d" % (speed, err, self.time))
+		print("speed: %f stable time: %f time: %d" % (speed, self.stable_time, self.time))
 		return speed
 
-
+	def get_pid_output(self):
+		p,i,d = self.get_pid()
+		pid_output = self.kp * p + self.ki * i + self.kd * d
+		# pid_output = self.kp * p
+		return pid_output
 
 	def run_active(self):
 		while not rospy.is_shutdown():
