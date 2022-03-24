@@ -7,11 +7,11 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Float32MultiArray
 
 class Controller:
-	default_kp = 2.2
+	default_kp = 2.5
 	default_kd = 0.1
 	default_ki = 0
 	default_speed = 20.0
-	speed_range = 25.0
+	speed_range = 20.0
 	servo_offset = 0.0
 	active_frequency = 10
 
