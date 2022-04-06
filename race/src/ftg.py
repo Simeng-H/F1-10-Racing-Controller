@@ -14,6 +14,6 @@ class FTGController:
 
 if __name__ == '__main__':
     try:
-        controller = FTGController(active=False, tune=True)
+        controller = FTGController()
     except:
         rospy.signal_shutdown()
