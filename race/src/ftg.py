@@ -9,7 +9,8 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Float32MultiArray
 
 class FTGController:
-
+    car_radius = 0.3
+    
     def __init__(self):
         rospy.init_node('ftg_controller', anonymous=False)
         rospy.on_shutdown(self.shutdown)
