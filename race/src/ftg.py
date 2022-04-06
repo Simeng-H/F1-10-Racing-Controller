@@ -3,6 +3,7 @@ from collections import deque
 import math
 import rospy
 from race.msg import pid_input
+from sensor_msgs.msg import LaserScan
 from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Float32MultiArray
 
@@ -12,9 +13,9 @@ class FTGController:
         rospy.init_node('ftg_controller', anonymous=False)
         rospy.on_shutdown(self.shutdown)
         self.command_pub = rospy.Publisher('/car_1/offboard/command', AckermannDrive, queue_size = 10)
-        rospy.Subscriber("/car_1/scan", pid_input, self.scan_listener_hook)
+        rospy.Subscriber("/car_1/scan", LaserScan, self.scan_listener_hook)
     
-    def scan_listener_hook(self):
+    def scan_listener_hook(self, scan):
         pass
 
     def generate_control_message(self):
