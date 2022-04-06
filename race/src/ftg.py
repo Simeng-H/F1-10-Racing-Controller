@@ -20,8 +20,13 @@ class FTGController:
     def scan_listener_hook(self, scan):
         pass
 
-    def generate_control_message(self):
-        pass
+    def preprocess_and_save_scan(self, laser_scan):
+        '''
+        self.ranges at the end of preprocessing should be a valid array of ranges, points where nan is reported is set to range_max
+        '''
+        self.angle_increment = laser_scan.angle_increment
+        ranges = [raw if raw != math.nan else laser_scan.range_max for raw in laser_scan.ranges]
+        self.ranges = ranges
 
     def disparity_extend(self, scan):
         pass
