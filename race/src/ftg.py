@@ -9,7 +9,7 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Float32MultiArray
 
 class FTGController:
-    car_radius = 0.3
+    car_radius = 0.15
     
     def __init__(self):
         rospy.init_node('ftg_controller', anonymous=False)
@@ -29,7 +29,24 @@ class FTGController:
         self.ranges = ranges
 
     def disparity_extend(self, scan):
-        pass
+        num = len(scan.ranges)
+        start_range = int(0.125*num) # ignore the first 30 degrees
+        end_range = int(0.875*num) # ignore the last 30 degrees
+        prev = scan.ranges[start_range]
+        for k in range(start_range+1, end_range):
+            curr = scan.ranges[k]
+            if curr - prev > 1:
+                angle = tan-1(prev/car_radius)
+            if prev - curr < 1:
+                # extend to the left
+            prev = curr
+
+        best_ray = start_range
+        best_distance = 0
+        for k in range(start_range+1, end_range):
+            if scan.ranges[k] > best_distance:
+                best_distance = scan.ranges[k]
+                best_ray = k
 
 if __name__ == '__main__':
     try:
