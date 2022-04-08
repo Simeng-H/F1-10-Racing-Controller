@@ -9,17 +9,13 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Float32MultiArray
 
 class FTGController:
-<<<<<<< HEAD
+
     car_radius = 0.15
-    
-=======
-    car_radius = 0.3
     max_steering_angle = math.pi/4 # 45 degrees
     safe_distance = 0.4
     max_distance = 5
     max_speed = 40
 
->>>>>>> 7a8735d811bc6da93e2d7ec89deac07f90c468df
     def __init__(self):
         rospy.init_node('ftg_controller', anonymous=False)
         rospy.on_shutdown(self.shutdown)
