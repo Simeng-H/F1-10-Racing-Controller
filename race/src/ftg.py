@@ -91,27 +91,21 @@ class FTGController:
         while k < end_range:
             curr = ranges[k]
             if curr - prev > 1:
-<<<<<<< HEAD
-                angle = (FTGController.car_radius/prev)*360
-                num_rays = int(angle*(num/240))
+                angle = (FTGController.car_radius/prev)
+                num_rays = angle_to_index(angle)-angle_to_index(0)
                 for i in range(k, k+num_rays):
                     ranges[i] = prev
                     k += 1
             elif prev - curr < 1:
-                angle = (FTGController.car_radius/prev)*360
-                num_rays = int(angle*(num/240))
+                angle = (FTGController.car_radius/curr)
+                num_rays = angle_to_index(angle)-angle_to_index(0)
                 for i in range(k-num_rays, k):
                     # print(ranges[i])
                     # print(curr)
                     ranges[i] = curr
             prev = curr
             k += 1
-=======
-                angle = tan-1(prev/car_radius)
-            if prev - curr < 1:
-                # extend to the left
-                prev = curr
->>>>>>> feat/safety-control
+
 
         best_ray = start_range
         best_distance = 0
