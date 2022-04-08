@@ -13,7 +13,7 @@ class FTGController:
     car_radius = 0.15
     max_steering_angle = math.pi/4 # 45 degrees
     safe_distance = 0.4
-    max_distance = 5
+    full_speed_distance = 5
     max_speed = 40
 
     def __init__(self):
@@ -25,15 +25,23 @@ class FTGController:
     def scan_listener_hook(self, laser_scan):
         self.preprocess_and_save_scan(laser_scan)
         self.generate_and_publish_control_message()
-        pass
 
     def preprocess_and_save_scan(self, laser_scan):
         '''
         self.ranges at the end of preprocessing should be a valid array of ranges, points where nan is reported is set to range_max
         '''
-        self.angle_increment = laser_scan.angle_increment
+        self.raw_scan = laser_scan
         ranges = [raw if raw != math.nan else laser_scan.range_max for raw in laser_scan.ranges]
         self.ranges = ranges
+
+    def angle_to_index(self, angle):
+        index = int(float(angle-self.raw_scan.angle_min)/self.raw_scan.angle_increment)
+        return index
+
+    def get_frontal_clearance(self):
+        start = self.angle_to_index(-math.pi/10)
+        end = self.angle_to_index(math.pi/10)
+        return min(self.ranges[start:end])
 
     def generate_and_publish_control_message(self, target_angle, target_distance):
         angle = self.generate_steering_angle(target_angle)
@@ -52,7 +60,7 @@ class FTGController:
         if front_margin < 0:
             speed = 0
         else:
-            speed = front_margin / FTGController.max_distance
+            speed = front_margin / FTGController.full_speed_distance
         if speed > FTGController.max_speed:
             speed = FTGController.max_speed
         return speed
@@ -74,7 +82,7 @@ class FTGController:
                 angle = tan-1(prev/car_radius)
             if prev - curr < 1:
                 # extend to the left
-            prev = curr
+                prev = curr
 
         best_ray = start_range
         best_distance = 0
