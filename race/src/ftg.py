@@ -18,13 +18,14 @@ class FTGController:
 
     def __init__(self):
         rospy.init_node('ftg_controller', anonymous=False)
-        rospy.on_shutdown(self.shutdown)
+        # rospy.on_shutdown(self.shutdown)
         self.command_pub = rospy.Publisher('/car_1/offboard/command', AckermannDrive, queue_size = 10)
         rospy.Subscriber("/car_1/scan", LaserScan, self.scan_listener_hook)
     
     def scan_listener_hook(self, laser_scan):
         self.preprocess_and_save_scan(laser_scan)
-        self.generate_and_publish_control_message()
+        self.disparity_extend(laser_scan)
+        # self.generate_and_publish_control_message()
         pass
 
     def preprocess_and_save_scan(self, laser_scan):
@@ -32,7 +33,7 @@ class FTGController:
         self.ranges at the end of preprocessing should be a valid array of ranges, points where nan is reported is set to range_max
         '''
         self.angle_increment = laser_scan.angle_increment
-        ranges = [raw if raw != math.nan else laser_scan.range_max for raw in laser_scan.ranges]
+        ranges = [raw if raw != float('nan') else laser_scan.range_max for raw in laser_scan.ranges]
         self.ranges = ranges
 
     def generate_and_publish_control_message(self, target_angle, target_distance):
@@ -72,13 +73,13 @@ class FTGController:
         while k < end_range:
             curr = scan.ranges[k]
             if curr - prev > 1:
-                angle = (car_radius/prev)*360
+                angle = (FTGController.car_radius/prev)*360
                 num_rays = angle*(num/240)
                 for i in range(k, k+num_rays):
                     scan.ranges[i] = prev
                     k += 1
             elif prev - curr < 1:
-                angle = (car_radius/prev)*360
+                angle = (FTGController.car_radius/prev)*360
                 num_rays = angle*(num/240)
                 for i in range(k-num_rays, k):
                     scan.ranges[i] = curr
@@ -91,10 +92,13 @@ class FTGController:
             if scan.ranges[k] > best_distance:
                 best_distance = scan.ranges[k]
                 best_ray = k
+
+        print("best angle: %f" % (best_ray/num)*240 - 120)
         return (best_ray/num)*240 - 120
 
 if __name__ == '__main__':
-    try:
-        controller = FTGController()
-    except:
-        rospy.signal_shutdown()
+    controller = FTGController()
+    rospy.spin()
+    # try:
+    # except:
+    #     rospy.signal_shutdown()
