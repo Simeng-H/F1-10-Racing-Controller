@@ -24,25 +24,16 @@ class FTGController:
     
     def scan_listener_hook(self, laser_scan):
         self.preprocess_and_save_scan(laser_scan)
-<<<<<<< HEAD
         self.disparity_extend(self.ranges)
         # self.generate_and_publish_control_message()
         pass
-=======
-        self.generate_and_publish_control_message()
->>>>>>> feat/safety-control
 
     def preprocess_and_save_scan(self, laser_scan):
         '''
         self.ranges at the end of preprocessing should be a valid array of ranges, points where nan is reported is set to range_max
         '''
-<<<<<<< HEAD
         self.angle_increment = laser_scan.angle_increment
         ranges = [raw if raw != float('nan') else laser_scan.range_max for raw in laser_scan.ranges]
-=======
-        self.raw_scan = laser_scan
-        ranges = [raw if raw != math.nan else laser_scan.range_max for raw in laser_scan.ranges]
->>>>>>> feat/safety-control
         self.ranges = ranges
 
     def angle_to_index(self, angle):
@@ -91,7 +82,6 @@ class FTGController:
         while k < end_range:
             curr = ranges[k]
             if curr - prev > 1:
-<<<<<<< HEAD
                 angle = (FTGController.car_radius/prev)*360
                 num_rays = int(angle*(num/240))
                 for i in range(k, k+num_rays):
@@ -106,12 +96,6 @@ class FTGController:
                     ranges[i] = curr
             prev = curr
             k += 1
-=======
-                angle = tan-1(prev/car_radius)
-            if prev - curr < 1:
-                # extend to the left
-                prev = curr
->>>>>>> feat/safety-control
 
         best_ray = start_range
         best_distance = 0
