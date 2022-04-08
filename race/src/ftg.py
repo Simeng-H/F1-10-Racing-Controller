@@ -68,13 +68,22 @@ class FTGController:
         start_range = int(0.125*num) # ignore the first 30 degrees
         end_range = int(0.875*num) # ignore the last 30 degrees
         prev = scan.ranges[start_range]
-        for k in range(start_range+1, end_range):
+        k = start_range+1
+        while k < end_range:
             curr = scan.ranges[k]
             if curr - prev > 1:
-                angle = tan-1(prev/car_radius)
-            if prev - curr < 1:
-                # extend to the left
+                angle = (car_radius/prev)*360
+                num_rays = angle*(num/240)
+                for i in range(curr, curr+num_rays):
+                    scan.ranges[i] = prev
+                    k += 1
+            elif prev - curr < 1:
+                angle = (car_radius/prev)*360
+                num_rays = angle*(num/240)
+                for i in range(curr-num_rays, curr):
+                    scan.ranges[i] = curr
             prev = curr
+            k += 1
 
         best_ray = start_range
         best_distance = 0
@@ -82,6 +91,7 @@ class FTGController:
             if scan.ranges[k] > best_distance:
                 best_distance = scan.ranges[k]
                 best_ray = k
+        return (best_ray/num)*240
 
 if __name__ == '__main__':
     try:
