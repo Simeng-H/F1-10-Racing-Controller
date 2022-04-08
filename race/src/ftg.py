@@ -24,7 +24,7 @@ class FTGController:
     
     def scan_listener_hook(self, laser_scan):
         self.preprocess_and_save_scan(laser_scan)
-        self.disparity_extend(laser_scan)
+        self.disparity_extend(self.ranges)
         # self.generate_and_publish_control_message()
         pass
 
@@ -64,33 +64,35 @@ class FTGController:
         command.speed = speed
         return command
 
-    def disparity_extend(self, scan):
-        num = len(scan.ranges)
+    def disparity_extend(self, ranges):
+        num = len(ranges)
         start_range = int(0.125*num) # ignore the first 30 degrees
         end_range = int(0.875*num) # ignore the last 30 degrees
-        prev = scan.ranges[start_range]
+        prev = ranges[start_range]
         k = start_range+1
         while k < end_range:
-            curr = scan.ranges[k]
+            curr = ranges[k]
             if curr - prev > 1:
                 angle = (FTGController.car_radius/prev)*360
                 num_rays = int(angle*(num/240))
                 for i in range(k, k+num_rays):
-                    scan.ranges[i] = prev
+                    ranges[i] = prev
                     k += 1
             elif prev - curr < 1:
                 angle = (FTGController.car_radius/prev)*360
                 num_rays = int(angle*(num/240))
                 for i in range(k-num_rays, k):
-                    scan.ranges[i] = curr
+                    # print(ranges[i])
+                    # print(curr)
+                    ranges[i] = curr
             prev = curr
             k += 1
 
         best_ray = start_range
         best_distance = 0
         for k in range(start_range+1, end_range):
-            if scan.ranges[k] > best_distance:
-                best_distance = scan.ranges[k]
+            if ranges[k] > best_distance:
+                best_distance = ranges[k]
                 best_ray = k
 
         print("best angle: %f" % (best_ray/num)*240 - 120)
