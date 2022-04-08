@@ -91,7 +91,7 @@ class FTGController:
             if scan.ranges[k] > best_distance:
                 best_distance = scan.ranges[k]
                 best_ray = k
-        return (best_ray/num)*240
+        return (best_ray/num)*240 - 120
 
 if __name__ == '__main__':
     try:
