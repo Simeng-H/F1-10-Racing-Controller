@@ -83,13 +83,13 @@ class FTGController:
             curr = ranges[k]
             if curr - prev > 1:
                 angle = (FTGController.car_radius/prev)
-                num_rays = int(self.raw_scan.angle_increment/angle)
+                num_rays = int(ang;e/self.raw_scan.angle_increment)
                 for i in range(k, k+num_rays):
                     ranges[i] = prev
                     k += 1
             elif prev - curr < 1:
                 angle = (FTGController.car_radius/curr)
-                num_rays = int(self.raw_scan.angle_increment/angle)
+                num_rays = int(angle/self.raw_scan.angle_increment)
                 for i in range(k-num_rays, k):
                     # print(ranges[i])
                     # print(curr)
