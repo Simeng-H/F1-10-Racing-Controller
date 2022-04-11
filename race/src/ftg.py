@@ -32,6 +32,7 @@ class FTGController:
         '''
         self.ranges at the end of preprocessing should be a valid array of ranges, points where nan is reported is set to range_max
         '''
+        self.raw_scan = laser_scan
         self.angle_increment = laser_scan.angle_increment
         ranges = [raw if raw != float('nan') else laser_scan.range_max for raw in laser_scan.ranges]
         self.ranges = ranges
@@ -83,7 +84,7 @@ class FTGController:
             curr = ranges[k]
             if curr - prev > 1:
                 angle = (FTGController.car_radius/prev)
-                num_rays = int(ang;e/self.raw_scan.angle_increment)
+                num_rays = int(angle/self.raw_scan.angle_increment)
                 for i in range(k, k+num_rays):
                     ranges[i] = prev
                     k += 1
