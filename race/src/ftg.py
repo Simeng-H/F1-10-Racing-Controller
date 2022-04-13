@@ -20,6 +20,7 @@ class FTGController:
         rospy.init_node('ftg_controller', anonymous=False)
         # rospy.on_shutdown(self.shutdown)
         self.command_pub = rospy.Publisher('/car_1/offboard/command', AckermannDrive, queue_size = 10)
+        self.extend_pub = rospy.Publisher('extended', LaserScan, queue_size=10)
         rospy.Subscriber("/car_1/scan", LaserScan, self.scan_listener_hook)
     
     def scan_listener_hook(self, laser_scan):
@@ -91,30 +92,47 @@ class FTGController:
         num = len(ranges)
         start_range = int(0.125*num) # ignore the first 30 degrees
         end_range = int(0.875*num) # ignore the last 30 degrees
-        # prev = ranges[start_range]
-        # k = start_range+1
-        # while k < end_range:
-        #     try:
-        #         curr = ranges[k]
-        #         if curr - prev > 1:
-        #             angle = (FTGController.car_radius/prev)
-        #             num_rays = int(angle/self.raw_scan.angle_increment)
-        #             for i in range(k, k+num_rays):
-        #                 # print(angle, num_rays ,i, len(ranges))
-        #                 ranges[i] = prev
-        #                 k += 1
-        #         elif prev - curr < 1:
-        #             angle = (FTGController.car_radius/curr)
-        #             num_rays = int(angle/self.raw_scan.angle_increment)
-        #             for i in range(k-num_rays, k):
-        #                 # print(ranges[i])
-        #                 # print(curr)
-        #                 # print(i, len(ranges))
-        #                 ranges[i] = curr
-        #         prev = curr
-        #         k += 1
-        #     except IndexError:
-        #         k += 1
+        prev = ranges[start_range]
+        k = start_range+1
+        while k < end_range:
+            try:
+                curr = ranges[k]
+                if curr - prev > 1:
+                    angle = (FTGController.car_radius/prev)
+                    num_rays = int(angle/self.raw_scan.angle_increment)
+                    for i in range(k, k+num_rays):
+                        # print(angle, num_rays ,i, len(ranges))
+                        ranges[i] = prev
+                        k += 1
+                elif prev - curr < 1:
+                    angle = (FTGController.car_radius/curr)
+                    num_rays = int(angle/self.raw_scan.angle_increment)
+                    for i in range(k-num_rays, k):
+                        # print(ranges[i])
+                        # print(curr)
+                        # print(i, len(ranges))
+                        ranges[i] = curr
+                prev = curr
+                k += 1
+            except IndexError:
+                k += 1
+        new_ranges = ranges[start_range+1:end_range]
+        msg = LaserScan()
+        msg.angle_min = 0
+        msg.angle_max = math.pi
+        msg.angle_increment = math.pi/len(new_ranges)
+        msg.range_min = min(new_ranges)
+        msg.range_max = max(new_ranges)
+        msg.ranges = new_ranges
+        self.extend_pub.publish(msg)
+
+    def best_ray(self, ranges):
+        self.disparity_extend(ranges)
+        num = len(ranges)
+        start_range = int(0.125 * num)  # ignore the first 30 degrees
+        end_range = int(0.875 * num)  # ignore the last 30 degrees
+        prev = ranges[start_range]
+        k = start_range + 1
 
         best_ray = start_range
         best_distance = 0
