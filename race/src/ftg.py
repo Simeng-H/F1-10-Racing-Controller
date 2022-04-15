@@ -6,7 +6,7 @@ import rospy
 from race.msg import pid_input
 from sensor_msgs.msg import LaserScan
 from ackermann_msgs.msg import AckermannDrive
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Header
 
 class FTGController:
 
@@ -26,7 +26,7 @@ class FTGController:
     def scan_listener_hook(self, laser_scan):
         self.preprocess_and_save_scan(laser_scan)
         angle = self.disparity_extend(self.ranges)
-        self.generate_and_publish_control_message(angle, 4)
+        # self.generate_and_publish_control_message(angle, 4)
         pass
 
     def preprocess_and_save_scan(self, laser_scan):
@@ -118,12 +118,13 @@ class FTGController:
                 k += 1
         new_ranges = ranges[start_range+1:end_range]
         msg = LaserScan()
-        msg.angle_min = 0
-        msg.angle_max = math.pi
+        msg.angle_min = -math.pi/2
+        msg.angle_max = math.pi/2
         msg.angle_increment = math.pi/len(new_ranges)
         msg.range_min = min(new_ranges)
         msg.range_max = max(new_ranges)
         msg.ranges = new_ranges
+        msg.header.frame_id = "extend"
         self.extend_pub.publish(msg)
 
     def best_ray(self, ranges):
