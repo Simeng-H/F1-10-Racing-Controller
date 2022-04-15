@@ -36,7 +36,7 @@ class FTGController:
     def scan_listener_hook(self, laser_scan):
         self.preprocess_and_save_scan(laser_scan)
         self.determine_state()
-        angle = self.disparity_extend(self.ranges)
+        # angle = self.disparity_extend(self.ranges)
         # self.generate_and_publish_control_message(angle, 4)
         pass
 
@@ -135,7 +135,6 @@ class FTGController:
                 k += 1
             except IndexError:
                 k += 1
-        return ranges
         
         new_ranges = ranges[start_range+1:end_range]
         msg = LaserScan()
@@ -147,6 +146,8 @@ class FTGController:
         msg.ranges = new_ranges
         msg.header.frame_id = "extend"
         self.extend_pub.publish(msg)
+
+        return ranges
 
     def best_ray(self, ranges):
         new_ranges = self.disparity_extend(ranges)
