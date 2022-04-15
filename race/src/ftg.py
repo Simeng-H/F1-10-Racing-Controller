@@ -7,24 +7,35 @@ from race.msg import pid_input
 from sensor_msgs.msg import LaserScan
 from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Header
+import enum
+
+class State(enum.Enum):
+    stop = 0
+    delay_turn = 1
+    normal = 2
 
 class FTGController:
 
     car_radius = 0.15
     max_steering_angle = math.pi/4 # 45 degrees
-    safe_distance = 0.4
+    safe_frontal_clearance = 0.4
+    safe_side_clearance = car_radius * 1.5
     full_speed_distance = 5
+    min_speed = 15
     max_speed = 40
+    speed_bonus = max_speed - min_speed
 
     def __init__(self):
         rospy.init_node('ftg_controller', anonymous=False)
         # rospy.on_shutdown(self.shutdown)
         self.command_pub = rospy.Publisher('/car_1/offboard/command', AckermannDrive, queue_size = 10)
         self.extend_pub = rospy.Publisher('extended', LaserScan, queue_size=10)
+        self.state = State.stop
         rospy.Subscriber("/car_1/scan", LaserScan, self.scan_listener_hook)
     
     def scan_listener_hook(self, laser_scan):
         self.preprocess_and_save_scan(laser_scan)
+        self.determine_state()
         angle = self.disparity_extend(self.ranges)
         # self.generate_and_publish_control_message(angle, 4)
         pass
@@ -39,6 +50,7 @@ class FTGController:
         for index in range(len(ranges)):
             if ranges[index] < 0.05:
                 ranges[index] = 0.05
+        self.raw_ranges = ranges
         self.ranges = ranges
 
     def angle_to_index(self, angle):
@@ -49,37 +61,50 @@ class FTGController:
         # print((self.raw_scan.angle_max - self.raw_scan.angle_min) * 180 / math.pi)
         angle = index*1.0/len(self.ranges) * (self.raw_scan.angle_max - self.raw_scan.angle_min) + self.raw_scan.angle_min
         return angle
+    
+    def determine_state(self):
+        if(self.get_frontal_clearance() < FTGController.safe_frontal_clearance):
+            self.state = State.stop
+        elif self.get_side_clearance() < FTGController.safe_side_clearance:
+            self.state = State.delay_turn
+        else:
+            self.state = State.normal
+        
 
     def get_frontal_clearance(self):
         start = self.angle_to_index(-math.pi/10)
         end = self.angle_to_index(math.pi/10)
-        return min(self.ranges[start:end])
+        return min(self.raw_ranges[start:end])
+
+    def get_side_clearance(self):
+        start = self.angle_to_index(-math.pi/2)
+        end = self.angle_to_index(math.pi/2)
+        return min(self.raw_ranges[start:end])
 
     def generate_and_publish_control_message(self, target_angle, target_distance):
         angle = self.generate_steering_angle(target_angle)
         speed = self.generate_speed(target_distance)
-        command = self.make_control_message(angle, 17)
+        command = self.make_control_message(angle, speed)
+        # command = self.make_control_message(angle, speed)
         self.command_pub.publish(command)
 
     def generate_steering_angle(self, target_angle):
-        angle = target_angle/FTGController.max_steering_angle * 100
-        if angle >= 100:
-            angle = 100
-        if angle <= -100:
-            angle = -100
-        if min(self.ranges) < FTGController.car_radius:
-            print("minimum range: %f" % min(self.ranges))
+        if self.state != State.normal:
             angle = 0
+        else:
+            angle = target_angle/FTGController.max_steering_angle * 100
+            if angle >= 100:
+                angle = 100
+            if angle <= -100:
+                angle = -100
         return angle
         
-    def generate_speed(self, target_distance):
-        front_margin = target_distance - FTGController.safe_distance
-        if front_margin < 0:
+    def generate_speed(self):
+        if self.state == State.stop:
             speed = 0
         else:
-            speed = front_margin / FTGController.full_speed_distance
-        if speed > FTGController.max_speed:
-            speed = FTGController.max_speed
+            bonus_multiplier = self.get_frontal_clearance()/FTGController.full_speed_distance
+            speed = FTGController.min_speed + bonus_multiplier * FTGController.speed_bonus
         return speed
 
     def make_control_message(self, angle, speed):
@@ -124,23 +149,16 @@ class FTGController:
         self.extend_pub.publish(msg)
 
     def best_ray(self, ranges):
-        self.disparity_extend(ranges)
-        num = len(ranges)
-        start_range = int(0.125 * num)  # ignore the first 30 degrees
-        end_range = int(0.875 * num)  # ignore the last 30 degrees
-        prev = ranges[start_range]
-        k = start_range + 1
-
-        best_ray = start_range
+        new_ranges = self.disparity_extend(ranges)
+        start_range = int(0.125*len(ranges)) # ignore first 30 degrees
+        end_range = int(0.875*len(ranges)) # ignore last 30 degrees
+        best_index = None
         best_distance = 0
-        for k in range(start_range+1, end_range):
-            if ranges[k] > best_distance+0.1:
-                best_distance = ranges[k]
-                best_ray = k
-
-        # print("best ray: %f" % best_ray)
-        # print("best ray: %f" % (float(best_ray)/num))
-        best_angle = self.index_to_angle(best_ray) * 180/math.pi
+        for k in range(start_range+1,end_range):
+            if new_ranges[k]>best_distance:
+                best_index = k
+                best_distance = new_ranges[k]
+        best_angle = self.index_to_angle(best_index)*180/math.pi
         print("best angle: %f" % best_angle)
         return best_angle
 
