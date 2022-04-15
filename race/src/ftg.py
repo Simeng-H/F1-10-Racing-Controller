@@ -25,7 +25,7 @@ class FTGController:
     
     def scan_listener_hook(self, laser_scan):
         self.preprocess_and_save_scan(laser_scan)
-        angle = self.disparity_extend(self.ranges)
+        angle = self.best_ray(self.ranges)
         # self.generate_and_publish_control_message(angle, 4)
         pass
 
@@ -130,23 +130,16 @@ class FTGController:
         self.extend_pub.publish(msg)
 
     def best_ray(self, ranges):
-        self.disparity_extend(ranges)
-        num = len(ranges)
-        start_range = int(0.125 * num)  # ignore the first 30 degrees
-        end_range = int(0.875 * num)  # ignore the last 30 degrees
-        prev = ranges[start_range]
-        k = start_range + 1
-
-        best_ray = start_range
+        new_ranges = self.disparity_extend(ranges)
+        start_range = int(0.125*len(ranges)) # ignore first 30 degrees
+        end_range = int(0.875*len(ranges)) # ignore last 30 degrees
+        best_index = None
         best_distance = 0
-        for k in range(start_range+1, end_range):
-            if ranges[k] > best_distance+0.1:
-                best_distance = ranges[k]
-                best_ray = k
-
-        # print("best ray: %f" % best_ray)
-        # print("best ray: %f" % (float(best_ray)/num))
-        best_angle = self.index_to_angle(best_ray) * 180/math.pi
+        for k in range(start_range+1,end_range):
+            if new_ranges[k]>best_distance:
+                best_index = k
+                best_distance = new_ranges[k]
+        best_angle = self.index_to_angle(best_index)*180/math.pi
         print("best angle: %f" % best_angle)
         return best_angle
 
