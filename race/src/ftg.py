@@ -90,34 +90,28 @@ class FTGController:
 
     def disparity_extend(self, ranges):
         num = len(ranges)
-        start_range = 0 # ignore the first 30 degrees
-        end_range = num # ignore the last 30 degrees
+        start_range = 0
+        end_range = num
+        disparity_distance = 1
         prev = ranges[start_range]
         k = start_range+1
         while k < end_range:
             try:
                 curr = ranges[k]
-                if curr - prev > 1:
+                if abs(curr - prev) > disparity_distance:
                     angle = (FTGController.car_radius/prev)
                     num_rays = int(angle/self.raw_scan.angle_increment)
-                    for i in range(k, k+num_rays):
+                    for i in range(k-num_rays, k+num_rays):
                         # print(angle, num_rays ,i, len(ranges))
-                        if i < num:
-                            ranges[i] = prev
-                            k += 1
-                elif prev - curr < 1:
-                    angle = (FTGController.car_radius/curr)
-                    num_rays = int(angle/self.raw_scan.angle_increment)
-                    for i in range(k-num_rays, k):
-                        # print(ranges[i])
-                        # print(curr)
-                        # print(i, len(ranges))
-                        if i >= 0:
-                            ranges[i] = curr
+                        if i < num and i > 0:
+                            ranges[i] = 0
+                    k += num_rays
                 prev = curr
                 k += 1
             except IndexError:
                 k += 1
+        return ranges
+        
         new_ranges = ranges[start_range+1:end_range]
         msg = LaserScan()
         msg.angle_min = -math.pi/2
