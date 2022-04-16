@@ -8,6 +8,8 @@ from sensor_msgs.msg import LaserScan
 from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Header
 import enum
+import pdb
+
 
 class State(enum.Enum):
     stop = 0
@@ -16,13 +18,14 @@ class State(enum.Enum):
 
 class FTGController:
 
-    car_radius = 0.15
+    car_radius = 0.3
     max_steering_angle = math.pi/4 # 45 degrees
-    safe_frontal_clearance = 0.4
-    safe_side_clearance = car_radius * 1.5
+    safe_frontal_clearance = 0
+    safe_side_clearance = 0
+    # safe_side_clearance = car_radius
     full_speed_distance = 5
     min_speed = 15
-    max_speed = 40
+    max_speed = 15
     speed_bonus = max_speed - min_speed
 
     def __init__(self):
@@ -30,28 +33,64 @@ class FTGController:
         # rospy.on_shutdown(self.shutdown)
         self.command_pub = rospy.Publisher('/car_1/offboard/command', AckermannDrive, queue_size = 10)
         self.extend_pub = rospy.Publisher('extended', LaserScan, queue_size=10)
+        self.processed_pub = rospy.Publisher('processed', LaserScan, queue_size=10)
         self.state = State.stop
         rospy.Subscriber("/car_1/scan", LaserScan, self.scan_listener_hook)
     
     def scan_listener_hook(self, laser_scan):
-        self.preprocess_and_save_scan(laser_scan)
-        self.determine_state()
-        # angle = self.disparity_extend(self.ranges)
-        # self.generate_and_publish_control_message(angle, 4)
+        preprocessed_ranges = self.preprocess_scan(laser_scan)
+        # print("Here\n\n\n")
+        # print(self.ranges)
+        # pdb.set_trace()
+        frontal_clearance = self.get_frontal_clearance(preprocessed_ranges)
+        side_clearance = self.get_side_clearance(preprocessed_ranges)
+        self.determine_state(frontal_clearance, side_clearance)
+        best_ray = self.best_ray(preprocessed_ranges)
+        angle = self.generate_steering_angle(best_ray)
+        speed = self.generate_speed(frontal_clearance)
+        # print("speed: %f, angle %f, state %s" %(speed, angle, self.state.name))
+        self.generate_and_publish_control_message(angle, speed)
         pass
 
-    def preprocess_and_save_scan(self, laser_scan):
+    def preprocess_scan(self, laser_scan):
         '''
         self.ranges at the end of preprocessing should be a valid array of ranges, points where nan is reported is set to range_max
         '''
         self.raw_scan = laser_scan
         self.angle_increment = laser_scan.angle_increment
-        ranges = [raw if raw != float('nan') else laser_scan.range_max for raw in laser_scan.ranges]
-        for index in range(len(ranges)):
-            if ranges[index] < 0.05:
-                ranges[index] = 0.05
-        self.raw_ranges = ranges
+        print("min range: %f"%laser_scan.range_min)
+        # ranges = [raw if raw != float('nan') else laser_scan.range_max for raw in laser_scan.ranges]
+        ranges = []
+        for i in range(len(laser_scan.ranges)):
+            range_ = laser_scan.ranges[i]
+            if(math.isnan(range_)):
+                # range_ = laser_scan.range_max
+                range_ = 10
+            # if range_ < 0.01:
+                # print("\t zero in raw")
+            # if(range_ < 0.02):
+            # if(range_ < 0.02):
+            #     range_ = 0.05
+            ranges.append(range_)
+        # print("raw:")
+        # print(laser_scan.ranges)
+        # print("processed:")
+        # print(laser_scan.range_max)
+        print("min range: %f"%min(ranges))
         self.ranges = ranges
+
+        msg = LaserScan()
+        msg.angle_min = self.raw_scan.angle_min
+        msg.angle_max = self.raw_scan.angle_max
+        msg.angle_increment = self.raw_scan.angle_increment
+        msg.range_min = min(ranges)
+        msg.range_max = max(ranges)
+        msg.ranges = ranges
+        msg.header.frame_id = "processed"
+
+        self.processed_pub.publish(msg)
+
+        return ranges
 
     def angle_to_index(self, angle):
         index = int(float(angle-self.raw_scan.angle_min)/self.raw_scan.angle_increment)
@@ -62,28 +101,32 @@ class FTGController:
         angle = index*1.0/len(self.ranges) * (self.raw_scan.angle_max - self.raw_scan.angle_min) + self.raw_scan.angle_min
         return angle
     
-    def determine_state(self):
-        if(self.get_frontal_clearance() < FTGController.safe_frontal_clearance):
+    def determine_state(self, frontal_clearance, side_clearance):
+        # print("frontal clearance: %f, side clearance: %f" % (self.get_frontal_clearance(), self.get_side_clearance()))
+        if(frontal_clearance < FTGController.safe_frontal_clearance):
             self.state = State.stop
-        elif self.get_side_clearance() < FTGController.safe_side_clearance:
+        elif side_clearance < FTGController.safe_side_clearance:
             self.state = State.delay_turn
         else:
             self.state = State.normal
         
 
-    def get_frontal_clearance(self):
+    def get_frontal_clearance(self, preprocessed_ranges):
         start = self.angle_to_index(-math.pi/10)
         end = self.angle_to_index(math.pi/10)
-        return min(self.raw_ranges[start:end])
+        # print("in get frontal clearance \n\n\n")
+        # print("frontal scans \n", preprocessed_ranges)
+        # print("frontal scans \n", self.raw_scan.ranges[start:end])
+        return min(preprocessed_ranges[start:end])
 
-    def get_side_clearance(self):
-        start = self.angle_to_index(-math.pi/2)
-        end = self.angle_to_index(math.pi/2)
-        return min(self.raw_ranges[start:end])
+    def get_side_clearance(self, preprocessed_ranges):
+        right_start = self.angle_to_index(-math.pi/2-math.pi/10)
+        right_end = self.angle_to_index(-math.pi/2 + math.pi/10)
+        left_start = self.angle_to_index(math.pi/2-math.pi/10)
+        left_end = self.angle_to_index(math.pi/2 + math.pi/10)
+        return min(preprocessed_ranges[right_start:right_end] + preprocessed_ranges[left_start:left_end])
 
-    def generate_and_publish_control_message(self, target_angle, target_distance):
-        angle = self.generate_steering_angle(target_angle)
-        speed = self.generate_speed(target_distance)
+    def generate_and_publish_control_message(self, angle, speed):
         command = self.make_control_message(angle, speed)
         # command = self.make_control_message(angle, speed)
         self.command_pub.publish(command)
@@ -99,11 +142,11 @@ class FTGController:
                 angle = -100
         return angle
         
-    def generate_speed(self):
+    def generate_speed(self, frontal_clearance):
         if self.state == State.stop:
             speed = 0
         else:
-            bonus_multiplier = self.get_frontal_clearance()/FTGController.full_speed_distance
+            bonus_multiplier = frontal_clearance/FTGController.full_speed_distance
             speed = FTGController.min_speed + bonus_multiplier * FTGController.speed_bonus
         return speed
 
@@ -114,46 +157,71 @@ class FTGController:
         return command
 
     def disparity_extend(self, ranges):
+        max_extend_angle = 45*math.pi/180
         num = len(ranges)
-        start_range = 0
+        start_range = 50
+        new_ranges = [0]*start_range+ranges[start_range:]
         end_range = num
-        disparity_distance = 1
+        disparity_distance = .3
         prev = ranges[start_range]
         k = start_range+1
         while k < end_range:
+            if(ranges[k] > 5.5):
+                # print("large value")
+                pass
             try:
                 curr = ranges[k]
                 if abs(curr - prev) > disparity_distance:
-                    angle = (FTGController.car_radius/prev)
-                    num_rays = int(angle/self.raw_scan.angle_increment)
-                    for i in range(k-num_rays, k+num_rays):
-                        # print(angle, num_rays ,i, len(ranges))
-                        if i < num and i > 0:
-                            ranges[i] = 0
-                    k += num_rays
+                    min_dist = min(curr,prev)
+                    right_angle = min(FTGController.car_radius/min_dist,max_extend_angle)
+                    left_angle = min(FTGController.car_radius/min_dist,max_extend_angle)
+                    print("right: %f"% prev, "left: %f"% curr, "disparity angle: %f"%(self.index_to_angle(k)*180/math.pi),"right angle: %f"%(right_angle*180/math.pi),"left angle: %f"%(left_angle*180/math.pi))
+                    right_num_rays = int(right_angle/self.raw_scan.angle_increment)
+                    left_num_rays = int(left_angle/self.raw_scan.angle_increment)
+                    for i in range(k-right_num_rays,k):
+                        if curr>prev:
+                            break;
+                        new_ranges[i] = min_dist
+
+                        # new_ranges[i] = 0
+                    for i in range(k,k+left_num_rays):
+                        if curr<prev:
+                            break;
+                        new_ranges[i] = min_dist
+                        # new_ranges[i] = 0
+                    k += left_num_rays
                 prev = curr
                 k += 1
             except IndexError:
                 k += 1
-        
-        new_ranges = ranges[start_range+1:end_range]
+
         msg = LaserScan()
-        msg.angle_min = -math.pi/2
-        msg.angle_max = math.pi/2
-        msg.angle_increment = math.pi/len(new_ranges)
+        msg.angle_min = self.raw_scan.angle_min
+        msg.angle_max = self.raw_scan.angle_max
+        msg.angle_increment = self.raw_scan.angle_increment
         msg.range_min = min(new_ranges)
         msg.range_max = max(new_ranges)
         msg.ranges = new_ranges
         msg.header.frame_id = "extend"
         self.extend_pub.publish(msg)
 
-        return ranges
+        for i in range(len(new_ranges)):
+            range_ = new_ranges[i]
+            angle = self.index_to_angle(i) * 180/ math.pi
+            if range_ > self.raw_scan.range_max-0.01:
+                # print("large value at angle %f" % angle)
+                pass
+                
+
+        return new_ranges
 
     def best_ray(self, ranges):
+        # print("ranges: ", ranges)
         new_ranges = self.disparity_extend(ranges)
+        # print("new ranges: ", new_ranges)
         start_range = int(0.125*len(ranges)) # ignore first 30 degrees
         end_range = int(0.875*len(ranges)) # ignore last 30 degrees
-        best_index = None
+        best_index = (start_range + end_range)//2
         best_distance = 0
         for k in range(start_range+1,end_range):
             if new_ranges[k]>best_distance:
