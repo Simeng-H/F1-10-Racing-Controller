@@ -86,7 +86,7 @@ class FTGController:
         msg.range_min = min(ranges)
         msg.range_max = max(ranges)
         msg.ranges = ranges
-        msg.header.frame_id = "processed"
+        msg.header.frame_id = "car_1_laser"
 
         self.processed_pub.publish(msg)
 
@@ -202,7 +202,7 @@ class FTGController:
         msg.range_min = min(new_ranges)
         msg.range_max = max(new_ranges)
         msg.ranges = new_ranges
-        msg.header.frame_id = "extend"
+        msg.header.frame_id = "car_1_laser"
         self.extend_pub.publish(msg)
 
         for i in range(len(new_ranges)):
