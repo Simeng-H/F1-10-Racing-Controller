@@ -50,7 +50,6 @@ class FTGController:
         speed = self.generate_speed(frontal_clearance)
         # print("speed: %f, angle %f, state %s" %(speed, angle, self.state.name))
         self.generate_and_publish_control_message(angle, speed)
-        pass
 
     def preprocess_scan(self, laser_scan):
         '''
@@ -58,7 +57,7 @@ class FTGController:
         '''
         self.raw_scan = laser_scan
         self.angle_increment = laser_scan.angle_increment
-        print("min range: %f"%laser_scan.range_min)
+        #print("min range: %f"%laser_scan.range_min)
         # ranges = [raw if raw != float('nan') else laser_scan.range_max for raw in laser_scan.ranges]
         ranges = []
         for i in range(len(laser_scan.ranges)):
@@ -71,12 +70,14 @@ class FTGController:
             # if(range_ < 0.02):
             # if(range_ < 0.02):
             #     range_ = 0.05
+            elif(range_< 0.03):
+                range_ = 10
             ranges.append(range_)
         # print("raw:")
         # print(laser_scan.ranges)
         # print("processed:")
         # print(laser_scan.range_max)
-        print("min range: %f"%min(ranges))
+        #print("min range: %f"%min(ranges))
         self.ranges = ranges
 
         msg = LaserScan()
