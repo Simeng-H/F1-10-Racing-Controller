@@ -9,7 +9,7 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Header
 import enum
 import pdb
-import statistics
+import numpy
 
 
 class State(enum.Enum):
@@ -24,18 +24,20 @@ class FTGController:
     safe_frontal_clearance = 0
     safe_side_clearance = 0
     # safe_side_clearance = car_radius
-    full_speed_distance = 5
+    full_speed_distance = 3
     min_speed = 20
-    max_speed = 20
+    max_speed = 35
     speed_bonus = max_speed - min_speed
 
     def __init__(self):
         rospy.init_node('ftg_controller', anonymous=False)
         # rospy.on_shutdown(self.shutdown)
         self.command_pub = rospy.Publisher('/car_1/offboard/command', AckermannDrive, queue_size = 10)
+        self.threshold_pub = rospy.Publisher('threshold', LaserScan, queue_size=10)
         self.extend_pub = rospy.Publisher('extended', LaserScan, queue_size=10)
         self.processed_pub = rospy.Publisher('processed', LaserScan, queue_size=10)
         self.state = State.stop
+        self.stability_score = 0
         rospy.Subscriber("/car_1/scan", LaserScan, self.scan_listener_hook)
     
     def scan_listener_hook(self, laser_scan):
@@ -45,13 +47,22 @@ class FTGController:
         # pdb.set_trace()
         frontal_clearance = self.get_frontal_clearance(preprocessed_ranges)
         side_clearance = self.get_side_clearance(preprocessed_ranges)
+        self.record_stability(frontal_clearance)
         self.determine_state(frontal_clearance, side_clearance)
-        best_ray = self.farthest_ray(preprocessed_ranges)
-        # best_ray = self.widest_gap_midpoint_ray(preprocessed_ranges)
+        # best_ray = self.farthest_ray(preprocessed_ranges)
+        best_ray = self.widest_approx_gap_midpoint_ray(preprocessed_ranges)
         angle = self.generate_steering_angle(best_ray)
-        speed = self.generate_speed(frontal_clearance)
+        speed = self.generate_speed(frontal_clearance = frontal_clearance, stability_score = self.stability_score)
         # print("speed: %f, angle %f, state %s" %(speed, angle, self.state.name))
         self.generate_and_publish_control_message(angle, speed)
+
+    def record_stability(self, frontal_clearance):
+        if(frontal_clearance < 1.5):
+            self.stability_score = 0
+        # elif(frontal_clearance < 1):
+        #     self.stability_score /= 2
+        else:
+            self.stability_score += 1
 
     def preprocess_scan(self, laser_scan):
         '''
@@ -115,8 +126,8 @@ class FTGController:
         
 
     def get_frontal_clearance(self, preprocessed_ranges):
-        start = self.angle_to_index(-math.pi/10)
-        end = self.angle_to_index(math.pi/10)
+        start = self.angle_to_index(-15 * math.pi/180)
+        end = self.angle_to_index(15 * math.pi/180)
         # print("in get frontal clearance \n\n\n")
         # print("frontal scans \n", preprocessed_ranges)
         # print("frontal scans \n", self.raw_scan.ranges[start:end])
@@ -145,12 +156,16 @@ class FTGController:
                 angle = -100
         return angle
         
-    def generate_speed(self, frontal_clearance):
-        if self.state == State.stop:
-            speed = 0
-        else:
-            bonus_multiplier = frontal_clearance/FTGController.full_speed_distance
-            speed = FTGController.min_speed + bonus_multiplier * FTGController.speed_bonus
+    def generate_speed(self, frontal_clearance, stability_score):
+        # if self.state == State.stop:
+        #     speed = 0
+        # else:
+        #     bonus_multiplier = frontal_clearance/FTGController.full_speed_distance
+        #     speed = FTGController.min_speed + bonus_multiplier * FTGController.speed_bonus
+
+        bonus_multiplier = math.tanh(stability_score ** 0.5)
+        speed = FTGController.min_speed + bonus_multiplier * FTGController.speed_bonus
+        print("clearance: %f, stability_score: %d, speed: %f" %(frontal_clearance, stability_score, speed))
         return speed
 
     def make_control_message(self, angle, speed):
@@ -266,6 +281,43 @@ class FTGController:
         best_index = (widest_gap_start + widest_gap_end)//2
         best_angle = self.index_to_angle(best_index)
         print("best angle: %f" % best_angle)
+        return best_angle
+
+    def widest_approx_gap_midpoint_ray(self, ranges):
+        new_ranges = self.disparity_extend(ranges)
+        threshold = numpy.percentile(new_ranges,60)
+        # print("median: %f" % median)
+        threshold_ranges = [v if v>threshold else 0 for v in new_ranges]
+        min_index = self.angle_to_index(-math.pi/2)
+        max_index = self.angle_to_index(math.pi/2)
+        best_start_index = min_index
+        best_length = 0
+        start_index = min_index
+        length = 0
+        for i in range(min_index,max_index):
+            if(new_ranges[i]>threshold and i<max_index-1):
+                length+=1
+            else:
+                if(length>best_length):
+                    best_start_index = start_index
+                    best_length = length
+                start_index = i+1
+                length = 0
+
+        best_index = best_start_index+best_length//2
+        best_angle = self.index_to_angle(best_index)
+        print("best angle: %f" % (best_angle*180/math.pi))
+
+        msg = LaserScan()
+        msg.angle_min = self.raw_scan.angle_min
+        msg.angle_max = self.raw_scan.angle_max
+        msg.angle_increment = self.raw_scan.angle_increment
+        msg.range_min = min(threshold_ranges)
+        msg.range_max = max(threshold_ranges)
+        msg.ranges = threshold_ranges
+        msg.header.frame_id = "car_1_laser"
+        self.threshold_pub.publish(msg)
+
         return best_angle
 
 
