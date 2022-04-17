@@ -46,18 +46,24 @@ class FTGController:
         # print(self.ranges)
         # pdb.set_trace()
         frontal_clearance = self.get_frontal_clearance(preprocessed_ranges)
-        side_clearance = self.get_side_clearance(preprocessed_ranges)
+        # side_clearance = self.get_side_clearance(preprocessed_ranges)
         self.record_stability(frontal_clearance)
-        self.determine_state(frontal_clearance, side_clearance)
+        # self.determine_state(frontal_clearance, side_clearance)
         # best_ray = self.farthest_ray(preprocessed_ranges)
-        best_ray = self.widest_approx_gap_midpoint_ray(preprocessed_ranges)
+        best_ray = self.widest_approx_gap_midpoint_rsay(preprocessed_ranges)
+        # if frontal_clearance > 2:
+        #     best_ray = self.farthest_ray(preprocessed_ranges)
+        # else:
+        #     best_ray = self.widest_approx_gap_midpoint_ray(preprocessed_ranges)
+
+        print("best angle: %f" % (best_ray*180/math.pi))
         angle = self.generate_steering_angle(best_ray)
         speed = self.generate_speed(frontal_clearance = frontal_clearance, stability_score = self.stability_score)
         # print("speed: %f, angle %f, state %s" %(speed, angle, self.state.name))
         self.generate_and_publish_control_message(angle, speed)
 
     def record_stability(self, frontal_clearance):
-        if(frontal_clearance < 1.5):
+        if(frontal_clearance < 1.7):
             self.stability_score = 0
         # elif(frontal_clearance < 1):
         #     self.stability_score /= 2
@@ -76,8 +82,8 @@ class FTGController:
         for i in range(len(laser_scan.ranges)):
             range_ = laser_scan.ranges[i]
             if(math.isnan(range_)):
-                # range_ = laser_scan.range_max
-                range_ = 10
+                range_ = laser_scan.range_max
+                # range_ = 10
             # if range_ < 0.01:
                 # print("\t zero in raw")
             # if(range_ < 0.02):
@@ -131,7 +137,7 @@ class FTGController:
         # print("in get frontal clearance \n\n\n")
         # print("frontal scans \n", preprocessed_ranges)
         # print("frontal scans \n", self.raw_scan.ranges[start:end])
-        return min(preprocessed_ranges[start:end])
+        return numpy.mean(preprocessed_ranges[start:end])
 
     def get_side_clearance(self, preprocessed_ranges):
         right_start = self.angle_to_index(-math.pi/2-math.pi/10)
@@ -146,14 +152,11 @@ class FTGController:
         self.command_pub.publish(command)
 
     def generate_steering_angle(self, target_angle):
-        if self.state != State.normal:
-            angle = 0
-        else:
-            angle = target_angle/FTGController.max_steering_angle * 100
-            if angle >= 100:
-                angle = 100
-            if angle <= -100:
-                angle = -100
+        angle = target_angle/FTGController.max_steering_angle * 100
+        if angle >= 100:
+            angle = 100
+        if angle <= -100:
+            angle = -100
         return angle
         
     def generate_speed(self, frontal_clearance, stability_score):
@@ -162,8 +165,9 @@ class FTGController:
         # else:
         #     bonus_multiplier = frontal_clearance/FTGController.full_speed_distance
         #     speed = FTGController.min_speed + bonus_multiplier * FTGController.speed_bonus
-
-        bonus_multiplier = math.tanh(stability_score ** 0.5)
+        if(frontal_clearance < 0.5):
+            return 0
+        bonus_multiplier = math.tanh((stability_score/10.0) ** 0.5)
         speed = FTGController.min_speed + bonus_multiplier * FTGController.speed_bonus
         print("clearance: %f, stability_score: %d, speed: %f" %(frontal_clearance, stability_score, speed))
         return speed
@@ -203,8 +207,8 @@ class FTGController:
                         if curr>prev:
                             break;
                         new_ranges[i] = min_dist
-
                         # new_ranges[i] = 0
+
                     for i in range(k,k+left_num_rays):
                         if curr<prev:
                             break;
@@ -240,8 +244,8 @@ class FTGController:
         # print("ranges: ", ranges)
         new_ranges = self.disparity_extend(ranges)
         # print("new ranges: ", new_ranges)
-        start_range = self.angle_to_index(-90 * math.pi/180)
-        end_range = self.angle_to_index(90 * math.pi/180)
+        start_range = self.angle_to_index(-70 * math.pi/180)
+        end_range = self.angle_to_index(70 * math.pi/180)
         best_index = (start_range + end_range)//2
         best_distance = 0
         for k in range(start_range+1,end_range):
@@ -249,7 +253,7 @@ class FTGController:
                 best_index = k
                 best_distance = new_ranges[k]
         best_angle = self.index_to_angle(best_index)
-        print("best angle: %f" % (best_angle*180/math.pi))
+        # print("best angle: %f" % (best_angle*180/math.pi))
         return best_angle
 
     def widest_gap_midpoint_ray(self, ranges):
@@ -285,11 +289,11 @@ class FTGController:
 
     def widest_approx_gap_midpoint_ray(self, ranges):
         new_ranges = self.disparity_extend(ranges)
-        threshold = numpy.percentile(new_ranges,60)
+        threshold = numpy.percentile(new_ranges,70)
         # print("median: %f" % median)
         threshold_ranges = [v if v>threshold else 0 for v in new_ranges]
-        min_index = self.angle_to_index(-math.pi/2)
-        max_index = self.angle_to_index(math.pi/2)
+        min_index = self.angle_to_index(-90 * math.pi/180)
+        max_index = self.angle_to_index(90 * math.pi/180)
         best_start_index = min_index
         best_length = 0
         start_index = min_index
@@ -306,7 +310,7 @@ class FTGController:
 
         best_index = best_start_index+best_length//2
         best_angle = self.index_to_angle(best_index)
-        print("best angle: %f" % (best_angle*180/math.pi))
+        # print("best angle: %f" % (best_angle*180/math.pi))
 
         msg = LaserScan()
         msg.angle_min = self.raw_scan.angle_min
