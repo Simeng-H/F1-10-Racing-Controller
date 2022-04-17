@@ -9,6 +9,7 @@ from ackermann_msgs.msg import AckermannDrive
 from std_msgs.msg import Header
 import enum
 import pdb
+import statistics
 
 
 class State(enum.Enum):
@@ -18,14 +19,14 @@ class State(enum.Enum):
 
 class FTGController:
 
-    car_radius = 0.3
+    car_radius = 0.25
     max_steering_angle = math.pi/4 # 45 degrees
     safe_frontal_clearance = 0
     safe_side_clearance = 0
     # safe_side_clearance = car_radius
     full_speed_distance = 5
-    min_speed = 15
-    max_speed = 15
+    min_speed = 20
+    max_speed = 20
     speed_bonus = max_speed - min_speed
 
     def __init__(self):
@@ -45,7 +46,8 @@ class FTGController:
         frontal_clearance = self.get_frontal_clearance(preprocessed_ranges)
         side_clearance = self.get_side_clearance(preprocessed_ranges)
         self.determine_state(frontal_clearance, side_clearance)
-        best_ray = self.best_ray(preprocessed_ranges)
+        best_ray = self.farthest_ray(preprocessed_ranges)
+        # best_ray = self.widest_gap_midpoint_ray(preprocessed_ranges)
         angle = self.generate_steering_angle(best_ray)
         speed = self.generate_speed(frontal_clearance)
         # print("speed: %f, angle %f, state %s" %(speed, angle, self.state.name))
@@ -172,11 +174,14 @@ class FTGController:
                 pass
             try:
                 curr = ranges[k]
+                # left_avg = sum(ranges[k:k+5])/5
+                # right_avg = sum(ranges[k-5:k])/5
                 if abs(curr - prev) > disparity_distance:
+                # if abs(left_avg-right_avg) > disparity_distance:
                     min_dist = min(curr,prev)
                     right_angle = min(FTGController.car_radius/min_dist,max_extend_angle)
                     left_angle = min(FTGController.car_radius/min_dist,max_extend_angle)
-                    print("right: %f"% prev, "left: %f"% curr, "disparity angle: %f"%(self.index_to_angle(k)*180/math.pi),"right angle: %f"%(right_angle*180/math.pi),"left angle: %f"%(left_angle*180/math.pi))
+                    # print("right: %f"% prev, "left: %f"% curr, "disparity angle: %f"%(self.index_to_angle(k)*180/math.pi),"right angle: %f"%(right_angle*180/math.pi),"left angle: %f"%(left_angle*180/math.pi))
                     right_num_rays = int(right_angle/self.raw_scan.angle_increment)
                     left_num_rays = int(left_angle/self.raw_scan.angle_increment)
                     for i in range(k-right_num_rays,k):
@@ -216,21 +221,54 @@ class FTGController:
 
         return new_ranges
 
-    def best_ray(self, ranges):
+    def farthest_ray(self, ranges):
         # print("ranges: ", ranges)
         new_ranges = self.disparity_extend(ranges)
         # print("new ranges: ", new_ranges)
-        start_range = int(0.125*len(ranges)) # ignore first 30 degrees
-        end_range = int(0.875*len(ranges)) # ignore last 30 degrees
+        start_range = self.angle_to_index(-90 * math.pi/180)
+        end_range = self.angle_to_index(90 * math.pi/180)
         best_index = (start_range + end_range)//2
         best_distance = 0
         for k in range(start_range+1,end_range):
             if new_ranges[k]>best_distance:
                 best_index = k
                 best_distance = new_ranges[k]
-        best_angle = self.index_to_angle(best_index)*180/math.pi
+        best_angle = self.index_to_angle(best_index)
+        print("best angle: %f" % (best_angle*180/math.pi))
+        return best_angle
+
+    def widest_gap_midpoint_ray(self, ranges):
+        new_ranges = self.disparity_extend(ranges)
+        widest_gap_start = 0
+        widest_gap_end = 0
+        widest_gap_width = 0
+
+        this_gap_start = 0
+        this_gap_end = 0
+        this_gap_width = 0
+
+        for i in range(1, len(new_ranges)):
+            curr, prev = new_ranges[i], new_ranges[i-1]
+            jump = curr-prev
+            if not abs(jump) > 0.3:
+                continue
+
+            # if disparity detected
+            this_gap_end = i
+            this_gap_width = this_gap_end - this_gap_start
+            if this_gap_width > widest_gap_width:
+                widest_gap_start = this_gap_start
+                widest_gap_end = this_gap_end
+                widest_gap_width = this_gap_width
+            this_gap_start = this_gap_end
+            this_gap_end = i
+
+        best_index = (widest_gap_start + widest_gap_end)//2
+        best_angle = self.index_to_angle(best_index)
         print("best angle: %f" % best_angle)
         return best_angle
+
+
 
 if __name__ == '__main__':
     controller = FTGController()
