@@ -63,7 +63,7 @@ class FTGController:
         self.generate_and_publish_control_message(angle, speed)
 
     def record_stability(self, frontal_clearance):
-        if(frontal_clearance < 1.7):
+        if(frontal_clearance < 2):
             self.stability_score = 0
         # elif(frontal_clearance < 1):
         #     self.stability_score /= 2
