@@ -19,7 +19,7 @@ class State(enum.Enum):
 
 class FTGController:
 
-    car_radius = 0.25
+    car_radius = 0.19
     max_steering_angle = math.pi/4 # 45 degrees
     safe_frontal_clearance = 0
     safe_side_clearance = 0
