@@ -21,12 +21,12 @@ class FTGController:
 
     car_radius = 0.19
     max_steering_angle = math.pi/4 # 45 degrees
-    safe_frontal_clearance = 0
+    safe_frontal_clearance = 0.7
     safe_side_clearance = 0
     # safe_side_clearance = car_radius
     full_speed_distance = 3
-    min_speed = 20
-    max_speed = 35
+    min_speed = 25
+    max_speed = 55
     speed_bonus = max_speed - min_speed
 
     def __init__(self):
@@ -165,7 +165,7 @@ class FTGController:
         # else:
         #     bonus_multiplier = frontal_clearance/FTGController.full_speed_distance
         #     speed = FTGController.min_speed + bonus_multiplier * FTGController.speed_bonus
-        if(frontal_clearance < 1):
+        if(frontal_clearance < FTGController.safe_frontal_clearance):
             print("STOPPING")
             return 0
         bonus_multiplier = math.tanh((stability_score/10.0) ** 0.5)
@@ -289,7 +289,9 @@ class FTGController:
         return best_angle
 
     def widest_approx_gap_midpoint_ray(self, ranges):
-        new_ranges = self.disparity_extend(ranges)
+        # new_ranges = self.disparity_extend(ranges)
+        new_ranges = ranges
+
         threshold = max(numpy.percentile(new_ranges,50),2)
         # print("median: %f" % median)
         threshold_ranges = [v if v>threshold else 0 for v in new_ranges]
