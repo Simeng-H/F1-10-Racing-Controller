@@ -21,12 +21,12 @@ class FTGController:
 
     car_radius = 0.19
     max_steering_angle = math.pi/4 # 45 degrees
-    safe_frontal_clearance = 0.7
+    safe_frontal_clearance = 0.9
     safe_side_clearance = 0
     # safe_side_clearance = car_radius
     full_speed_distance = 3
     min_speed = 25
-    max_speed = 55
+    max_speed = 54
     speed_bonus = max_speed - min_speed
 
     def __init__(self):
@@ -63,7 +63,7 @@ class FTGController:
         self.generate_and_publish_control_message(angle, speed)
 
     def record_stability(self, frontal_clearance):
-        if(frontal_clearance < 2):
+        if(frontal_clearance < 2.5):
             self.stability_score = 0
         # elif(frontal_clearance < 1):
         #     self.stability_score /= 2
@@ -185,7 +185,7 @@ class FTGController:
         start_range = 50
         new_ranges = [0]*start_range+ranges[start_range:]
         end_range = num
-        disparity_distance = .3
+        disparity_distance = .5
         prev = ranges[start_range]
         k = start_range+1
         while k < end_range:
